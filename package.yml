@@ -1,0 +1,18 @@
+package: community.lazycat.app.warracker
+name: Warracker
+version: 1.0.4
+description: "Warranty tracker: log products, upload receipts, get expiration alerts."
+min_os_version: "1.5.0"
+homepage: https://github.com/sassanix/Warracker
+author: sassanix
+license: AGPL-3.0
+permissions:
+  required:
+    - net.internet
+locales:
+  zh:
+    name: Warracker 保修管家
+    description: "保修期跟踪器：录入产品与保修期、上传发票凭证，到期前自动提醒，支持多用户与保修索赔管理。"
+  en:
+    name: Warracker
+    description: "Warranty tracker: log products, upload receipts, get expiration alerts, manage claims."

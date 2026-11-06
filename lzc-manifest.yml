@@ -1,0 +1,69 @@
+application:
+  subdomain: warracker
+  multi_instance: false
+  # The app ships its own account system (self-service sign-up, first user
+  # becomes admin; no e-mail verification involved), so it is exposed
+  # directly instead of sitting behind the platform login gate.
+  public_path:
+    - /
+  upstreams:
+    - location: /package-licenses/
+      backend: file:///lzcapp/pkg/content/licenses/
+    - location: /
+      backend: http://warracker:80/
+
+services:
+  warrackerdb:
+    image: docker.1ms.run/library/postgres:15-alpine
+    environment:
+      - POSTGRES_DB=warranty_test
+      - POSTGRES_USER=warranty_user
+      - POSTGRES_PASSWORD={{ printf "%x" (stable_secret "db_password") }}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warranty_user -d warranty_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
+    binds:
+      - /lzcapp/var/postgres:/var/lib/postgresql/data
+
+  warracker:
+    # upstream: ghcr.io/sassanix/warracker/main:1.0.4
+    image: ghcr.1ms.run/sassanix/warracker/main:1.0.4
+    depends_on:
+      - warrackerdb
+    environment:
+      - DB_HOST=warrackerdb
+      - DB_PORT=5432
+      - DB_NAME=warranty_test
+      - DB_USER=warranty_user
+      - DB_PASSWORD={{ printf "%x" (stable_secret "db_password") }}
+      - DB_ADMIN_USER=warracker_admin
+      - DB_ADMIN_PASSWORD={{ printf "%x" (stable_secret "db_admin_password") }}
+      - SECRET_KEY={{ printf "%x" (stable_secret "secret_key") }}
+      - TZ=Asia/Shanghai
+    binds:
+      - /lzcapp/var/uploads:/data/uploads
+
+usage: |
+  Warracker 是一个保修期跟踪器：录入产品、保修期与购买凭证，
+  到期前自动提醒，还能上传发票/收据并管理保修索赔全流程。
+
+  使用方法：
+  1. 打开应用，点注册直接创建账号（首个注册的账号自动成为管理员；
+     本实例不接入邮件服务，注册不需要邮件验证）。
+  2. 添加产品：填名称、购买日期与保修时长，可上传发票照片作为凭证。
+  3. 在列表页按状态/标签筛选，随时查看哪些快到期。
+  4. 多用户可用：管理员在设置里能查看全局数据并管理账号。
+
+  数据与安全：
+  - 产品数据与上传的凭证保存在 /lzcapp/var（postgres + uploads），
+    卸载应用会一并删除，请定期备份。
+  - 登录凭据存在内置 PostgreSQL 里，密码以哈希存储。
+  - 应用直接对外开放，由应用自己的注册/登录页鉴权：
+    自带账号体系的服务再套一层平台鉴权会造成重复登录，所以用 public_path。
+  - 到期提醒的邮件/Apprise 推送需要另行配置 SMTP，本实例默认未启用。
+
+  说明：
+  - 本包未做实机验证，功能以官方文档为准，遇到问题请反馈。
